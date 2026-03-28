@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -261,6 +262,7 @@ func (a *App) SyncHistory() SyncResult {
 func copyFile(src, dst string) error {
 	// Use PowerShell's Copy-Item to bypass Go's strict file locking on Windows
 	cmd := exec.Command("powershell", "-NoProfile", "-Command", "Copy-Item", "-LiteralPath", "'"+src+"'", "-Destination", "'"+dst+"'", "-Force")
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
