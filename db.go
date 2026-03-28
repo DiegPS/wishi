@@ -1,10 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
 	"sync"
 )
 
@@ -22,42 +18,17 @@ type WishData struct {
 }
 
 type LocalDB struct {
-	mu       sync.RWMutex
-	filepath string
-	wishes   []WishData
+	mu     sync.RWMutex
+	wishes []WishData
 }
 
-func InitDB(dataDir string) (*LocalDB, error) {
-	dbPath := filepath.Join(dataDir, "wishes.json")
-	db := &LocalDB{
-		filepath: dbPath,
-		wishes:   []WishData{},
+func InitDB() *LocalDB {
+	return &LocalDB{
+		wishes: []WishData{},
 	}
-
-	if _, err := os.Stat(dbPath); err == nil {
-		data, err := os.ReadFile(dbPath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read wishes file: %w", err)
-		}
-		if err := json.Unmarshal(data, &db.wishes); err != nil {
-			// Instead of failing entirely, just start fresh if corrupted to ensure we don't crash
-			fmt.Println("Warning: wishes format corrupted, starting fresh")
-			db.wishes = []WishData{}
-		}
-	}
-
-	return db, nil
 }
 
-func (db *LocalDB) Save() error {
-	data, err := json.MarshalIndent(db.wishes, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(db.filepath, data, 0644)
-}
-
-func InsertWishes(db *LocalDB, newWishes []WishData) error {
+func InsertWishes(db *LocalDB, newWishes []WishData) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
@@ -69,23 +40,17 @@ func InsertWishes(db *LocalDB, newWishes []WishData) error {
 
 	for _, nw := range newWishes {
 		if !existing[nw.Id] {
-			// Append at the beginning or end? Typically append to the list
 			db.wishes = append(db.wishes, nw)
 			existing[nw.Id] = true
 		}
 	}
-
-	return db.Save()
 }
 
-func GetLastEndId(db *LocalDB, gachaType string) (string, error) {
+func GetLastEndId(db *LocalDB, gachaType string) string {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
 	var lastId string = "0"
-	// Find the maximum ID for this banner type
-	// Note: Strings like IDs represent large numbers, string comparison on IDs works since they are monotonic lengths
-	// but strictly we just need the "last inserted" which should have the largest numeric ID value
 	for _, w := range db.wishes {
 		if w.GachaType == gachaType {
 			if len(w.Id) > len(lastId) || (len(w.Id) == len(lastId) && w.Id > lastId) {
@@ -93,5 +58,5 @@ func GetLastEndId(db *LocalDB, gachaType string) (string, error) {
 			}
 		}
 	}
-	return lastId, nil
+	return lastId
 }

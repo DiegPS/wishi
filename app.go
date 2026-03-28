@@ -34,20 +34,7 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-
-	// Initialize DB (Portable Mode: Save next to the .exe)
-	exePath, err := os.Executable()
-	var dbDir string
-	if err == nil {
-		dbDir = filepath.Dir(exePath)
-	} else {
-		dbDir = "."
-	}
-
-	db, err := InitDB(dbDir)
-	if err == nil {
-		a.db = db
-	}
+	a.db = InitDB()
 }
 
 type SyncResult struct {
@@ -242,7 +229,7 @@ func (a *App) SyncHistory() SyncResult {
 			}
 
 			// Try inserting
-			err = InsertWishes(a.db, res.Data.List)
+			InsertWishes(a.db, res.Data.List)
 
 			if len(res.Data.List) < 20 {
 				break // Pagination ended
