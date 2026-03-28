@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -277,15 +276,54 @@ func (a *App) SyncHistory() SyncResult {
 }
 
 func copyFile(src, dst string) error {
-	// Use PowerShell's Copy-Item to bypass Go's strict file locking on Windows
-	cmd := exec.Command("powershell", "-NoProfile", "-Command", "Copy-Item", "-LiteralPath", "'"+src+"'", "-Destination", "'"+dst+"'", "-Force")
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("powershell copy failed: %s", string(output))
+	// 1. Intentamos leerlo usando las APIs estándar de Go directamente
+	// (Muchos de los bloqueos modernos permiten Read-Only)
+	sourceFile, err := os.Open(src)
+	if err == nil {
+		defer sourceFile.Close()
+		destFile, err := os.Create(dst)
+		if err != nil {
+			return err
+		}
+		defer destFile.Close()
+		_, err = io.Copy(destFile, sourceFile)
+		return err
 	}
-	return nil
+
+	// 2. Si falla por un bloqueo de Windows severo, usamos syscall (API de Windows)
+	// para pedir acceso SOLO LECTURA sin importa quién más usa el archivo
+	srcPtr, err := syscall.UTF16PtrFromString(src)
+	if err != nil {
+		return err
+	}
+
+	// Forzamos abrir el archivo con banderas especiales de evasión (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
+	// para que no importe si Genshin lo está modificando al mismo tiempo.
+	handle, err := syscall.CreateFile(
+		srcPtr,
+		syscall.GENERIC_READ,
+		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE,
+		nil,
+		syscall.OPEN_EXISTING,
+		syscall.FILE_ATTRIBUTE_NORMAL,
+		0,
+	)
+	if err != nil {
+		return fmt.Errorf("no se pudo abrir el archivo %s: %v", src, err)
+	}
+
+	// Lo envolvemos en un descriptor de archivo de Go clásico
+	fileDescriptor := os.NewFile(uintptr(handle), src)
+	defer fileDescriptor.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destFile.Close()
+
+	_, err = io.Copy(destFile, fileDescriptor)
+	return err
 }
 
 func testUrl(rawUrl string, isChina bool) bool {
