@@ -1,28 +1,35 @@
 :root {
-  /* Font Family - Modern clean look */
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  /* Font Family - Celestial Archivist / Technical Readability */
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
-  font-weight: 400;
+  font-weight: 500;
+  letter-spacing: 0.01em;
 
-  /* Color Palette - Premium Dark Theme */
-  --bg-dark: #0f172a; /* Deep midnight blue */
-  --bg-panel: rgba(30, 41, 59, 0.6); /* Slightly lighter for panels */
-  --border-light: rgba(255, 255, 255, 0.1);
+  /* Color Palette - Celestial Archivist Theme */
+  --bg-space: #10131a; /* Negro Espacial */
+  --bg-card: #191b23; /* Superficies de Tarjetas */
+  --color-gold: #e9c17a; /* Oro Estelar */
+  
+  --border-subtle: rgba(68, 71, 77, 0.15); /* #44474d/15 */
+  --border-light: rgba(255, 255, 255, 0.08);
+
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
+  --text-muted: #64748b;
   
-  /* Rarity Colors for Hoyoverse */
-  --color-5star: #eab308; /* Glowing gold */
-  --color-4star: #a855f7; /* Purple */
-  --color-3star: #3b82f6; /* Blue */
+  /* Rarity Colors */
+  --rarity-5: #eab308; /* Oro/Naranja */
+  --rarity-4: #a855f7; /* Púrpura */
+  --rarity-3: #64748b; /* Azul/Gris */
 
-  /* Glassmorphism effects */
+  /* Materiality / Glassmorphism */
   --glass-blur: blur(12px);
-  --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --border-radius-base: 8px; /* Round Eight */
 
   color-scheme: dark;
   color: var(--text-primary);
-  background-color: var(--bg-dark);
+  background-color: var(--bg-space);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -36,8 +43,9 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
-  /* Add a subtle starry or gradient background to simulate Genshin menus */
-  background: radial-gradient(circle at top right, #1e1b4b, var(--bg-dark) 60%);
+  /* Deep dark nebula background */
+  background: radial-gradient(circle at top right, #1a1625, var(--bg-space) 50%);
+  background-color: var(--bg-space);
 }
 
 #root {
@@ -55,36 +63,66 @@ h1, h2, h3, h4, p {
 
 /* Glass panel utility */
 .glass-panel {
-  background: var(--bg-panel);
-  border: 1px solid var(--border-light);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  border-radius: 12px;
+  border-radius: var(--border-radius-base);
   box-shadow: var(--glass-shadow);
+  transition: all 0.3s ease;
 }
 
-.text-gold { color: var(--color-5star); text-shadow: 0 0 10px rgba(234, 179, 8, 0.4); }
-.text-purple { color: var(--color-4star); text-shadow: 0 0 10px rgba(168, 85, 247, 0.4); }
+.text-gold { color: var(--color-gold); text-shadow: 0 0 12px rgba(233, 193, 122, 0.3); }
+.text-purple { color: var(--rarity-4); text-shadow: 0 0 10px rgba(168, 85, 247, 0.2); }
+.text-blue { color: var(--rarity-3); }
+.text-5star { color: var(--rarity-5); text-shadow: 0 0 12px rgba(234, 179, 8, 0.3); }
 
+/* Buttons */
 .button-primary {
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0));
-  border: 1px solid var(--border-light);
+  background: linear-gradient(135deg, rgba(233, 193, 122, 0.1), rgba(233, 193, 122, 0.05));
+  border: 1px solid rgba(233, 193, 122, 0.3);
   backdrop-filter: var(--glass-blur);
-  color: var(--text-primary);
+  color: var(--color-gold);
   padding: 10px 24px;
-  border-radius: 8px;
+  border-radius: var(--border-radius-base);
   font-weight: 600;
+  font-family: 'Manrope', sans-serif;
+  letter-spacing: 0.05em;
   cursor: pointer;
   transition: all 0.2s ease-in-out;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  text-transform: uppercase;
 }
 
-.button-primary:hover {
-  background: linear-gradient(135deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05));
-  box-shadow: 0 0 15px rgba(255,255,255,0.1);
+.button-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(233, 193, 122, 0.2), rgba(233, 193, 122, 0.1));
+  box-shadow: 0 0 20px rgba(233, 193, 122, 0.15);
   transform: translateY(-1px);
 }
 
-.button-primary:active {
+.button-primary:active:not(:disabled) {
   transform: translateY(1px);
+}
+
+.button-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+/* Scrollbar customization for the upcoming tables */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-space); 
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(68, 71, 77, 0.5); 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(68, 71, 77, 0.8); 
 }

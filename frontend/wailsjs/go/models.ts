@@ -113,6 +113,36 @@ export namespace main {
 		    return a;
 		}
 	}
+	export class WishRecord {
+	    id: string;
+	    uid: string;
+	    gacha_type: string;
+	    item_id: string;
+	    count: string;
+	    time: string;
+	    name: string;
+	    lang: string;
+	    item_type: string;
+	    rank_type: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new WishRecord(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.uid = source["uid"];
+	        this.gacha_type = source["gacha_type"];
+	        this.item_id = source["item_id"];
+	        this.count = source["count"];
+	        this.time = source["time"];
+	        this.name = source["name"];
+	        this.lang = source["lang"];
+	        this.item_type = source["item_type"];
+	        this.rank_type = source["rank_type"];
+	    }
+	}
 
 }
 

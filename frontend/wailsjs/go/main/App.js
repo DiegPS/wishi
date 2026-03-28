@@ -6,6 +6,10 @@ export function GetInitialStats() {
   return window['go']['main']['App']['GetInitialStats']();
 }
 
+export function GetWishHistory(arg1, arg2) {
+  return window['go']['main']['App']['GetWishHistory'](arg1, arg2);
+}
+
 export function SyncHistory() {
   return window['go']['main']['App']['SyncHistory']();
 }

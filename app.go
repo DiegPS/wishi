@@ -56,6 +56,19 @@ type SyncResult struct {
 	Stats   DashboardData `json:"stats"`
 }
 
+type WishRecord struct {
+	Id         string `json:"id"`
+	Uid        string `json:"uid"`
+	GachaType  string `json:"gacha_type"`
+	ItemId     string `json:"item_id"`
+	Count      string `json:"count"`
+	Time       string `json:"time"`
+	Name       string `json:"name"`
+	Lang       string `json:"lang"`
+	ItemType   string `json:"item_type"`
+	RankType   string `json:"rank_type"`
+}
+
 // GetInitialStats is called on frontend load
 func (a *App) GetInitialStats() DashboardData {
 	if a.db == nil {
@@ -63,6 +76,29 @@ func (a *App) GetInitialStats() DashboardData {
 	}
 	stats, _ := GetAllStats(a.db)
 	return stats
+}
+
+// GetWishHistory returns a list of wishes from the DB
+func (a *App) GetWishHistory(limit int, offset int) []WishRecord {
+	if a.db == nil {
+		return []WishRecord{}
+	}
+
+	rows, err := a.db.Query("SELECT id, uid, gacha_type, item_id, count, time, name, lang, item_type, rank_type FROM wishes ORDER BY id DESC LIMIT ? OFFSET ?", limit, offset)
+	if err != nil {
+		return []WishRecord{}
+	}
+	defer rows.Close()
+
+	var results []WishRecord
+	for rows.Next() {
+		var r WishRecord
+		err := rows.Scan(&r.Id, &r.Uid, &r.GachaType, &r.ItemId, &r.Count, &r.Time, &r.Name, &r.Lang, &r.ItemType, &r.RankType)
+		if err == nil {
+			results = append(results, r)
+		}
+	}
+	return results
 }
 
 // SyncHistory extracts the wish URL from the Genshin cache and downloads the data

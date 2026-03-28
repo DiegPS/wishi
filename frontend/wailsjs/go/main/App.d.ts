@@ -4,4 +4,6 @@ import {main} from '../models';
 
 export function GetInitialStats():Promise<main.DashboardData>;
 
+export function GetWishHistory(arg1:number,arg2:number):Promise<Array<main.WishRecord>>;
+
 export function SyncHistory():Promise<main.SyncResult>;
