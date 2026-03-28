@@ -206,13 +206,6 @@ function App() {
             <main style={{ padding: '40px', flex: 1 }}>
                 {renderView()}
             </main>
-
-            {/* Footer */}
-            <footer style={{ padding: '24px 40px', borderTop: '1px solid var(--border-subtle)', textAlign: 'center', marginTop: 'auto' }}>
-                <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                    Aetheric Horizon System v1.0 • Built with Wails & React
-                </p>
-            </footer>
                 </div>
             </div>
         </div>
