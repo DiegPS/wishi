@@ -42,7 +42,7 @@ export function Stats() {
 
     const graphData = useMemo(() => {
         let pityMap: Record<string, number> = {};
-        let fiveStars: { date: string, pity: number, banner: string, id: number }[] = [];
+        let fiveStars: { date: string, pity: number, banner: string, id: string }[] = [];
 
         // Compute pity sequentially
         history.forEach(w => {
