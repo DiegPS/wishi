@@ -1,0 +1,82 @@
+.cardContainer {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 250px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 12px;
+}
+
+.title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.totalBadge {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px 12px;
+    border-radius: 99px;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.pitySection {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.pityRow {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pityLabel {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.pityNumbers {
+    color: var(--text-secondary);
+}
+
+.softPityGlow {
+    color: #ef4444; /* red-500 */
+    text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+    font-weight: bold;
+}
+
+.progressBarBg {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progressBarFill5, .progressBarFill4 {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease-out;
+}
+
+.progressBarFill5 {
+    background: linear-gradient(90deg, #f59e0b, var(--color-5star));
+    box-shadow: 0 0 10px var(--color-5star);
+}
+
+.progressBarFill4 {
+    background: linear-gradient(90deg, #8b5cf6, var(--color-4star));
+    box-shadow: 0 0 10px var(--color-4star);
+}
