@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import './style.css'; // Global styles
-import { SyncHistory, GetInitialStats } from '../wailsjs/go/main/App';
+import { SyncHistory, GetInitialStats, LoadDataFromFrontend, GetAllWishes } from '../wailsjs/go/main/App';
 import {
     EventsOn,
     EventsOff,
@@ -31,12 +31,26 @@ function App() {
     const [stats, setStats] = useState<DashboardData | null>(null);
 
     useEffect(() => {
-        // Load stats on mount
-        GetInitialStats().then(data => {
-            if (data && data.global && data.global.lifetimeWishes > 0) {
-                setStats(data);
+        // Load stats on mount from localStorage if it exists
+        const savedData = localStorage.getItem('wishi_data');
+        if (savedData) {
+            try {
+                const parsed = JSON.parse(savedData);
+                LoadDataFromFrontend(parsed).then(data => {
+                    if (data && data.global && data.global.lifetimeWishes > 0) {
+                        setStats(data);
+                    }
+                }).catch(err => console.error(err));
+            } catch (err) {
+                console.error("Failed parsing localStorage wishi_data", err);
             }
-        }).catch(err => console.error(err));
+        } else {
+            GetInitialStats().then(data => {
+                if (data && data.global && data.global.lifetimeWishes > 0) {
+                    setStats(data);
+                }
+            }).catch(err => console.error(err));
+        }
 
         WindowIsMaximised()
             .then(setIsMaximised)
@@ -47,8 +61,16 @@ function App() {
             setProgressMsg(msg);
         });
 
+        // Event for Server-Sent-Events style real-time updating of Dashboard
+        EventsOn("syncStats", (currentStats: DashboardData) => {
+            if (currentStats && currentStats.global) {
+                setStats(currentStats);
+            }
+        });
+
         return () => {
             EventsOff("syncProgress");
+            EventsOff("syncStats");
         }
     }, []);
 
@@ -70,6 +92,9 @@ function App() {
             const result = await SyncHistory();
             if (result.success) {
                 setStats(result.stats);
+                // Save fully synced database to localStorage
+                const allWishes = await GetAllWishes();
+                localStorage.setItem('wishi_data', JSON.stringify(allWishes || []));
             } else {
                 alert("Error: " + result.error);
             }

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { GetWishHistory } from '../../wailsjs/go/main/App';
+import { EventsOn, EventsOff } from '../../wailsjs/runtime/runtime';
 import type { main } from '../../wailsjs/go/models';
 
 type WishRecord = main.WishRecord;
@@ -31,6 +32,37 @@ export function Archive() {
             }
         };
         loadHistory();
+
+        // Listen for new wish batches in real-time
+        EventsOn("wishesBatch", (newWishes: any[]) => {
+            if (newWishes && newWishes.length > 0) {
+                // We map them to the matching struct properties if necessary
+                const mappedWishes: WishRecord[] = newWishes.map(w => ({
+                    id: w.id,
+                    uid: w.uid,
+                    gacha_type: w.gacha_type,
+                    item_id: w.item_id,
+                    count: w.count,
+                    time: w.time,
+                    name: w.name,
+                    lang: w.lang,
+                    item_type: w.item_type,
+                    rank_type: w.rank_type
+                } as any)); // Avoid full typed check for dynamic proxy payload
+
+                // Use functional update to merge into existing state directly
+                setAllHistory(prev => {
+                    // Filter duplicates like `db.go` does, or just append
+                    const existingIds = new Set(prev.map(p => p.id));
+                    const uniqueNew = mappedWishes.filter(nw => !existingIds.has(nw.id));
+                    return [...prev, ...uniqueNew];
+                });
+            }
+        });
+
+        return () => {
+            EventsOff("wishesBatch");
+        };
     }, []);
 
     // Reset page to 1 when filters change

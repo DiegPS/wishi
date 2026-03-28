@@ -66,6 +66,29 @@ func (a *App) GetInitialStats() DashboardData {
 	return stats
 }
 
+// GetAllWishes returns the entirety of the database to save it on the frontend.
+func (a *App) GetAllWishes() []WishData {
+	if a.db == nil {
+		return []WishData{}
+	}
+	a.db.mu.RLock()
+	defer a.db.mu.RUnlock()
+	return a.db.wishes
+}
+
+// LoadDataFromFrontend loads data from the frontend (e.g. localStorage) into backend memory memory for processing.
+func (a *App) LoadDataFromFrontend(items []WishData) DashboardData {
+	if a.db == nil {
+		a.db = InitDB()
+	}
+	a.db.mu.Lock()
+	a.db.wishes = items
+	a.db.mu.Unlock()
+
+	stats, _ := GetAllStats(a.db)
+	return stats
+}
+
 // GetWishHistory returns a list of wishes from the DB
 func (a *App) GetWishHistory(limit int, offset int) []WishRecord {
 	if a.db == nil {
@@ -230,6 +253,13 @@ func (a *App) SyncHistory() SyncResult {
 
 			// Try inserting
 			InsertWishes(a.db, res.Data.List)
+
+			// Emitir el evento de inserción al frontend para Server-Sent Events o actualizaciones en tiempo real a la interfaz
+			runtime.EventsEmit(a.ctx, "wishesBatch", res.Data.List)
+
+			// Emit current stats to have realtime updates in Dashboard
+			currentStats, _ := GetAllStats(a.db)
+			runtime.EventsEmit(a.ctx, "syncStats", currentStats)
 
 			if len(res.Data.List) < 20 {
 				break // Pagination ended
