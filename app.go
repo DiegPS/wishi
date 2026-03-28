@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -21,7 +21,7 @@ import (
 // App struct
 type App struct {
 	ctx context.Context
-	db  *sql.DB
+	db  *LocalDB
 }
 
 // NewApp creates a new App application struct
@@ -84,31 +84,34 @@ func (a *App) GetWishHistory(limit int, offset int) []WishRecord {
 		return []WishRecord{}
 	}
 
-	// Use -1 limit to fetch all if requested implicitly or directly use the given limit
-	query := "SELECT id, uid, gacha_type, item_id, count, time, name, lang, item_type, rank_type FROM wishes ORDER BY time DESC"
-	var rows *sql.Rows
-	var err error
-
-	if limit > 0 {
-		query += " LIMIT ? OFFSET ?"
-		rows, err = a.db.Query(query, limit, offset)
-	} else {
-		rows, err = a.db.Query(query)
-	}
-
-	if err != nil {
-		return []WishRecord{}
-	}
-	defer rows.Close()
+	a.db.mu.RLock()
+	defer a.db.mu.RUnlock()
 
 	var results []WishRecord
-	for rows.Next() {
-		var r WishRecord
-		err := rows.Scan(&r.Id, &r.Uid, &r.GachaType, &r.ItemId, &r.Count, &r.Time, &r.Name, &r.Lang, &r.ItemType, &r.RankType)
-		if err == nil {
-			results = append(results, r)
-		}
+	for _, w := range a.db.wishes {
+		results = append(results, WishRecord{
+			Id: w.Id, Uid: w.Uid, GachaType: w.GachaType, ItemId: w.ItemId,
+			Count: w.Count, Time: w.Time, Name: w.Name, Lang: w.Lang,
+			ItemType: w.ItemType, RankType: w.RankType,
+		})
 	}
+
+	// Sort explicitly by Time descending (newest first)
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].Time > results[j].Time
+	})
+
+	if limit > 0 {
+		end := offset + limit
+		if offset >= len(results) {
+			return []WishRecord{}
+		}
+		if end > len(results) {
+			end = len(results)
+		}
+		return results[offset:end]
+	}
+
 	return results
 }
 

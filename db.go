@@ -1,86 +1,97 @@
 package main
 
 import (
-	"database/sql"
+	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
-
-	_ "modernc.org/sqlite"
+	"sync"
 )
 
-// InitDB initializes the SQLite database for wishes
-func InitDB(dataDir string) (*sql.DB, error) {
-	dbPath := filepath.Join(dataDir, "wishes.db")
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open database: %w", err)
+type WishData struct {
+	Id        string `json:"id"`
+	Uid       string `json:"uid"`
+	GachaType string `json:"gacha_type"`
+	ItemId    string `json:"item_id"`
+	Count     string `json:"count"`
+	Time      string `json:"time"`
+	Name      string `json:"name"`
+	Lang      string `json:"lang"`
+	ItemType  string `json:"item_type"`
+	RankType  string `json:"rank_type"`
+}
+
+type LocalDB struct {
+	mu       sync.RWMutex
+	filepath string
+	wishes   []WishData
+}
+
+func InitDB(dataDir string) (*LocalDB, error) {
+	dbPath := filepath.Join(dataDir, "wishes.json")
+	db := &LocalDB{
+		filepath: dbPath,
+		wishes:   []WishData{},
 	}
 
-	createTableQuery := `
-	CREATE TABLE IF NOT EXISTS wishes (
-		id TEXT PRIMARY KEY,
-		uid TEXT,
-		gacha_type TEXT,
-		item_id TEXT,
-		count TEXT,
-		time TEXT,
-		name TEXT,
-		lang TEXT,
-		item_type TEXT,
-		rank_type TEXT
-	);
-	`
-	_, err = db.Exec(createTableQuery)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create tables: %w", err)
+	if _, err := os.Stat(dbPath); err == nil {
+		data, err := os.ReadFile(dbPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read wishes file: %w", err)
+		}
+		if err := json.Unmarshal(data, &db.wishes); err != nil {
+			// Instead of failing entirely, just start fresh if corrupted to ensure we don't crash
+			fmt.Println("Warning: wishes format corrupted, starting fresh")
+			db.wishes = []WishData{}
+		}
 	}
 
 	return db, nil
 }
 
-type WishData struct {
-	Id         string `json:"id"`
-	Uid        string `json:"uid"`
-	GachaType  string `json:"gacha_type"`
-	ItemId     string `json:"item_id"`
-	Count      string `json:"count"`
-	Time       string `json:"time"`
-	Name       string `json:"name"`
-	Lang       string `json:"lang"`
-	ItemType   string `json:"item_type"`
-	RankType   string `json:"rank_type"`
-}
-
-func InsertWishes(db *sql.DB, wishes []WishData) error {
-	tx, err := db.Begin()
+func (db *LocalDB) Save() error {
+	data, err := json.MarshalIndent(db.wishes, "", "  ")
 	if err != nil {
 		return err
 	}
-	stmt, err := tx.Prepare(`INSERT OR IGNORE INTO wishes (id, uid, gacha_type, item_id, count, time, name, lang, item_type, rank_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	defer stmt.Close()
-
-	for _, w := range wishes {
-		_, err = stmt.Exec(w.Id, w.Uid, w.GachaType, w.ItemId, w.Count, w.Time, w.Name, w.Lang, w.ItemType, w.RankType)
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-	return tx.Commit()
+	return os.WriteFile(db.filepath, data, 0644)
 }
 
-func GetLastEndId(db *sql.DB, gachaType string) (string, error) {
-	var id string
-	err := db.QueryRow("SELECT id FROM wishes WHERE gacha_type = ? ORDER BY id DESC LIMIT 1", gachaType).Scan(&id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return "0", nil
-		}
-		return "0", err
+func InsertWishes(db *LocalDB, newWishes []WishData) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	// Use map to ensure uniqueness like IGNORE INTO
+	existing := make(map[string]bool)
+	for _, w := range db.wishes {
+		existing[w.Id] = true
 	}
-	return id, nil
+
+	for _, nw := range newWishes {
+		if !existing[nw.Id] {
+			// Append at the beginning or end? Typically append to the list
+			db.wishes = append(db.wishes, nw)
+			existing[nw.Id] = true
+		}
+	}
+
+	return db.Save()
+}
+
+func GetLastEndId(db *LocalDB, gachaType string) (string, error) {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	var lastId string = "0"
+	// Find the maximum ID for this banner type
+	// Note: Strings like IDs represent large numbers, string comparison on IDs works since they are monotonic lengths
+	// but strictly we just need the "last inserted" which should have the largest numeric ID value
+	for _, w := range db.wishes {
+		if w.GachaType == gachaType {
+			if len(w.Id) > len(lastId) || (len(w.Id) == len(lastId) && w.Id > lastId) {
+				lastId = w.Id
+			}
+		}
+	}
+	return lastId, nil
 }
