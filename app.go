@@ -33,7 +33,7 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
-	
+
 	// Initialize DB (Portable Mode: Save next to the .exe)
 	exePath, err := os.Executable()
 	var dbDir string
@@ -42,7 +42,7 @@ func (a *App) startup(ctx context.Context) {
 	} else {
 		dbDir = "."
 	}
-	
+
 	db, err := InitDB(dbDir)
 	if err == nil {
 		a.db = db
@@ -57,16 +57,16 @@ type SyncResult struct {
 }
 
 type WishRecord struct {
-	Id         string `json:"id"`
-	Uid        string `json:"uid"`
-	GachaType  string `json:"gacha_type"`
-	ItemId     string `json:"item_id"`
-	Count      string `json:"count"`
-	Time       string `json:"time"`
-	Name       string `json:"name"`
-	Lang       string `json:"lang"`
-	ItemType   string `json:"item_type"`
-	RankType   string `json:"rank_type"`
+	Id        string `json:"id"`
+	Uid       string `json:"uid"`
+	GachaType string `json:"gacha_type"`
+	ItemId    string `json:"item_id"`
+	Count     string `json:"count"`
+	Time      string `json:"time"`
+	Name      string `json:"name"`
+	Lang      string `json:"lang"`
+	ItemType  string `json:"item_type"`
+	RankType  string `json:"rank_type"`
 }
 
 // GetInitialStats is called on frontend load
@@ -84,7 +84,18 @@ func (a *App) GetWishHistory(limit int, offset int) []WishRecord {
 		return []WishRecord{}
 	}
 
-	rows, err := a.db.Query("SELECT id, uid, gacha_type, item_id, count, time, name, lang, item_type, rank_type FROM wishes ORDER BY id DESC LIMIT ? OFFSET ?", limit, offset)
+	// Use -1 limit to fetch all if requested implicitly or directly use the given limit
+	query := "SELECT id, uid, gacha_type, item_id, count, time, name, lang, item_type, rank_type FROM wishes ORDER BY time DESC"
+	var rows *sql.Rows
+	var err error
+
+	if limit > 0 {
+		query += " LIMIT ? OFFSET ?"
+		rows, err = a.db.Query(query, limit, offset)
+	} else {
+		rows, err = a.db.Query(query)
+	}
+
 	if err != nil {
 		return []WishRecord{}
 	}
@@ -108,7 +119,7 @@ func (a *App) SyncHistory() SyncResult {
 	if userProfile == "" {
 		return SyncResult{Error: "USERPROFILE env variable not found"}
 	}
-	
+
 	isChina := false
 	logPath := filepath.Join(userProfile, "AppData", "LocalLow", "miHoYo", "Genshin Impact", "output_log.txt")
 
@@ -207,7 +218,7 @@ func (a *App) SyncHistory() SyncResult {
 
 	// Fetch all wishes per gacha type
 	gachaTypes := []string{"301", "302", "200", "400", "500"} // Added 400 for safety, though 301 brings it usually.
-	
+
 	bannerNames := map[string]string{
 		"301": "Personajes (Limitado)",
 		"302": "Armas",
@@ -225,10 +236,10 @@ func (a *App) SyncHistory() SyncResult {
 			if err != nil || len(res.Data.List) == 0 {
 				break
 			}
-			
+
 			// Try inserting
 			err = InsertWishes(a.db, res.Data.List)
-			
+
 			if len(res.Data.List) < 20 {
 				break // Pagination ended
 			}
@@ -247,7 +258,7 @@ func (a *App) SyncHistory() SyncResult {
 func copyFile(src, dst string) error {
 	// Use PowerShell's Copy-Item to bypass Go's strict file locking on Windows
 	cmd := exec.Command("powershell", "-NoProfile", "-Command", "Copy-Item", "-LiteralPath", "'"+src+"'", "-Destination", "'"+dst+"'", "-Force")
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("powershell copy failed: %s", string(output))
