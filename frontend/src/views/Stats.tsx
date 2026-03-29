@@ -28,8 +28,10 @@ const LegendRow = ({ color, label, value }: { color: string; label: string; valu
 
 export function Stats() {
     const history = useWishesStore(state => state.wishes);
-    // Reverse memory reference without mutating global state
-    const reversedHistory = useMemo(() => [...history].reverse(), [history]);
+    // Sort chronologically (oldest to newest) for accurate pity calculation
+    const sortedHistory = useMemo(() => {
+        return [...history].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+    }, [history]);
     const [chartTab, setChartTab] = useState<'Event' | 'Weapon'>('Event');
 
     const graphData = useMemo(() => {
@@ -37,7 +39,7 @@ export function Stats() {
         let fiveStars: { date: string, pity: number, banner: string, id: string }[] = [];
 
         // Compute pity sequentially
-        reversedHistory.forEach(w => {
+        sortedHistory.forEach(w => {
             const banner = w.gacha_type === '400' ? '301' : w.gacha_type;
             pityMap[banner] = (pityMap[banner] || 0) + 1;
 
