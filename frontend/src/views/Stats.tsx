@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { GetWishHistory } from '../../wailsjs/go/main/App';
-import type { main } from '../../wailsjs/go/models';
+import React, { useState, useMemo } from 'react';
+import { useWishesStore, WishData } from '../store/useWishesStore';
 
 const ProgressBar = ({ label, value, main, global }: { label: string; value: string; main: number; global: number }) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -28,24 +27,17 @@ const LegendRow = ({ color, label, value }: { color: string; label: string; valu
 );
 
 export function Stats() {
-    const [history, setHistory] = useState<main.WishRecord[]>([]);
+    const history = useWishesStore(state => state.wishes);
+    // Reverse memory reference without mutating global state
+    const reversedHistory = useMemo(() => [...history].reverse(), [history]);
     const [chartTab, setChartTab] = useState<'Event' | 'Weapon'>('Event');
-
-    useEffect(() => {
-        GetWishHistory(0, 0).then(data => {
-            if (data) {
-                // Backend returns DESC by default. Reverse to oldest -> newest for accurate pity calculation
-                setHistory([...data].reverse());
-            }
-        });
-    }, []);
 
     const graphData = useMemo(() => {
         let pityMap: Record<string, number> = {};
         let fiveStars: { date: string, pity: number, banner: string, id: string }[] = [];
 
         // Compute pity sequentially
-        history.forEach(w => {
+        reversedHistory.forEach(w => {
             const banner = w.gacha_type === '400' ? '301' : w.gacha_type;
             pityMap[banner] = (pityMap[banner] || 0) + 1;
 

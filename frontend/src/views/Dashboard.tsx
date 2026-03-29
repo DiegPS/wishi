@@ -1,9 +1,7 @@
 import React from 'react';
 import { BannerCard } from '../components/BannerCard';
 import { WishStats } from '../components/WishStats';
-import type { main } from '../../wailsjs/go/models';
-
-type DashboardData = main.DashboardData;
+import { DashboardData } from '../store/useWishesStore';
 
 interface DashboardProps {
     stats: DashboardData | null;

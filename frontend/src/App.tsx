@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import './style.css'; // Global styles
-import { SyncHistory, GetInitialStats, LoadDataFromFrontend, GetAllWishes } from '../wailsjs/go/main/App';
+import { SyncHistory } from '../wailsjs/go/main/App';
 import {
     EventsOn,
     EventsOff,
@@ -11,13 +11,14 @@ import {
 } from '../wailsjs/runtime/runtime';
 import type { main } from '../wailsjs/go/models';
 
+import { useWishesStore, DashboardData } from './store/useWishesStore';
+
 // Views
 import { Dashboard } from './views/Dashboard';
 import { Archive } from './views/Archive';
 import { Stats } from './views/Stats';
 import { Vault } from './views/Vault';
 
-type DashboardData = main.DashboardData;
 type ViewType = 'dashboard' | 'archive' | 'stats' | 'vault';
 
 // App component
@@ -27,31 +28,13 @@ function App() {
     const [progressMsg, setProgressMsg] = useState('');
     const [isMaximised, setIsMaximised] = useState(false);
     
-    // Default empty state
-    const [stats, setStats] = useState<DashboardData | null>(null);
+    const wishes = useWishesStore(state => state.wishes);
+    const addWishes = useWishesStore(state => state.addWishes);
+    const getStats = useWishesStore(state => state.getStats);
+
+    const stats = useMemo(() => getStats(), [wishes, getStats]);
 
     useEffect(() => {
-        // Load stats on mount from localStorage if it exists
-        const savedData = localStorage.getItem('wishi_data');
-        if (savedData) {
-            try {
-                const parsed = JSON.parse(savedData);
-                LoadDataFromFrontend(parsed).then(data => {
-                    if (data && data.global && data.global.lifetimeWishes > 0) {
-                        setStats(data);
-                    }
-                }).catch(err => console.error(err));
-            } catch (err) {
-                console.error("Failed parsing localStorage wishi_data", err);
-            }
-        } else {
-            GetInitialStats().then(data => {
-                if (data && data.global && data.global.lifetimeWishes > 0) {
-                    setStats(data);
-                }
-            }).catch(err => console.error(err));
-        }
-
         WindowIsMaximised()
             .then(setIsMaximised)
             .catch(err => console.error(err));
@@ -62,17 +45,17 @@ function App() {
         });
 
         // Event for Server-Sent-Events style real-time updating of Dashboard
-        EventsOn("syncStats", (currentStats: DashboardData) => {
-            if (currentStats && currentStats.global) {
-                setStats(currentStats);
+        EventsOn("wishesBatch", (batch: any[]) => {
+            if (batch && batch.length > 0) {
+                addWishes(batch);
             }
         });
 
         return () => {
             EventsOff("syncProgress");
-            EventsOff("syncStats");
+            EventsOff("wishesBatch");
         }
-    }, []);
+    }, [addWishes]);
 
     const handleToggleMaximise = async () => {
         WindowToggleMaximise();
@@ -90,12 +73,7 @@ function App() {
         setProgressMsg('Iniciando...');
         try {
             const result = await SyncHistory();
-            if (result.success) {
-                setStats(result.stats);
-                // Save fully synced database to localStorage
-                const allWishes = await GetAllWishes();
-                localStorage.setItem('wishi_data', JSON.stringify(allWishes || []));
-            } else {
+            if (!result.success) {
                 alert("Error: " + result.error);
             }
         } catch (e) {

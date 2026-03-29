@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -18,32 +17,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-// App struct
-type App struct {
-	ctx context.Context
-	db  *LocalDB
-}
-
-// NewApp creates a new App application struct
-func NewApp() *App {
-	return &App{}
-}
-
-// startup is called when the app starts. The context is saved
-// so we can call the runtime methods
-func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
-	a.db = InitDB()
-}
-
-type SyncResult struct {
-	Success bool          `json:"success"`
-	Url     string        `json:"url"`
-	Error   string        `json:"error"`
-	Stats   DashboardData `json:"stats"`
-}
-
-type WishRecord struct {
+type WishData struct {
 	Id        string `json:"id"`
 	Uid       string `json:"uid"`
 	GachaType string `json:"gacha_type"`
@@ -56,73 +30,26 @@ type WishRecord struct {
 	RankType  string `json:"rank_type"`
 }
 
-// GetInitialStats is called on frontend load
-func (a *App) GetInitialStats() DashboardData {
-	if a.db == nil {
-		return DashboardData{}
-	}
-	stats, _ := GetAllStats(a.db)
-	return stats
+// App struct
+type App struct {
+	ctx context.Context
 }
 
-// GetAllWishes returns the entirety of the database to save it on the frontend.
-func (a *App) GetAllWishes() []WishData {
-	if a.db == nil {
-		return []WishData{}
-	}
-	a.db.mu.RLock()
-	defer a.db.mu.RUnlock()
-	return a.db.wishes
+// NewApp creates a new App application struct
+func NewApp() *App {
+	return &App{}
 }
 
-// LoadDataFromFrontend loads data from the frontend (e.g. localStorage) into backend memory memory for processing.
-func (a *App) LoadDataFromFrontend(items []WishData) DashboardData {
-	if a.db == nil {
-		a.db = InitDB()
-	}
-	a.db.mu.Lock()
-	a.db.wishes = items
-	a.db.mu.Unlock()
-
-	stats, _ := GetAllStats(a.db)
-	return stats
+// startup is called when the app starts. The context is saved
+// so we can call the runtime methods
+func (a *App) startup(ctx context.Context) {
+	a.ctx = ctx
 }
 
-// GetWishHistory returns a list of wishes from the DB
-func (a *App) GetWishHistory(limit int, offset int) []WishRecord {
-	if a.db == nil {
-		return []WishRecord{}
-	}
-
-	a.db.mu.RLock()
-	defer a.db.mu.RUnlock()
-
-	var results []WishRecord
-	for _, w := range a.db.wishes {
-		results = append(results, WishRecord{
-			Id: w.Id, Uid: w.Uid, GachaType: w.GachaType, ItemId: w.ItemId,
-			Count: w.Count, Time: w.Time, Name: w.Name, Lang: w.Lang,
-			ItemType: w.ItemType, RankType: w.RankType,
-		})
-	}
-
-	// Sort explicitly by Time descending (newest first)
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Time > results[j].Time
-	})
-
-	if limit > 0 {
-		end := offset + limit
-		if offset >= len(results) {
-			return []WishRecord{}
-		}
-		if end > len(results) {
-			end = len(results)
-		}
-		return results[offset:end]
-	}
-
-	return results
+type SyncResult struct {
+	Success bool   `json:"success"`
+	Url     string `json:"url"`
+	Error   string `json:"error"`
 }
 
 // SyncHistory extracts the wish URL from the Genshin cache and downloads the data
@@ -224,7 +151,7 @@ func (a *App) SyncHistory() SyncResult {
 		}
 	}
 
-	if gachaLink == "" || a.db == nil {
+	if gachaLink == "" {
 		runtime.EventsEmit(a.ctx, "syncProgress", "❌ Falló: Sin Autenticación")
 		return SyncResult{Error: "Could not find a valid wish URL. Did you open the history in game?"}
 	}
@@ -250,15 +177,8 @@ func (a *App) SyncHistory() SyncResult {
 				break
 			}
 
-			// Try inserting
-			InsertWishes(a.db, res.Data.List)
-
 			// Emitir el evento de inserción al frontend para Server-Sent Events o actualizaciones en tiempo real a la interfaz
 			runtime.EventsEmit(a.ctx, "wishesBatch", res.Data.List)
-
-			// Emit current stats to have realtime updates in Dashboard
-			currentStats, _ := GetAllStats(a.db)
-			runtime.EventsEmit(a.ctx, "syncStats", currentStats)
 
 			if len(res.Data.List) < 20 {
 				break // Pagination ended
@@ -270,9 +190,8 @@ func (a *App) SyncHistory() SyncResult {
 		}
 	}
 
-	runtime.EventsEmit(a.ctx, "syncProgress", "✅ Actualizando Estadísticas...")
-	stats, _ := GetAllStats(a.db)
-	return SyncResult{Success: true, Url: gachaLink, Stats: stats}
+	runtime.EventsEmit(a.ctx, "syncProgress", "✅ Actualización Completada")
+	return SyncResult{Success: true, Url: gachaLink}
 }
 
 func copyFile(src, dst string) error {
