@@ -18,8 +18,9 @@ import { Dashboard } from './views/Dashboard';
 import { Archive } from './views/Archive';
 import { Stats } from './views/Stats';
 import { Vault } from './views/Vault';
+import { Settings } from './views/Settings';
 
-type ViewType = 'dashboard' | 'archive' | 'stats' | 'vault';
+type ViewType = 'dashboard' | 'archive' | 'stats' | 'vault' | 'settings';
 
 // App component
 function App() {
@@ -90,6 +91,7 @@ function App() {
             case 'archive': return <Archive />;
             case 'stats': return <Stats />;
             case 'vault': return <Vault />;
+            case 'settings': return <Settings />;
             default: return <Dashboard stats={stats} />;
         }
     };
@@ -195,6 +197,35 @@ function App() {
                             {progressMsg}
                         </span>
                     )}
+                    <button
+                        onClick={() => setCurrentView('settings')}
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: 'var(--color-gold)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            padding: '8px',
+                            transition: 'transform 0.3s ease, opacity 0.3s ease',
+                            opacity: 0.8
+                        }}
+                        onMouseOver={(e) => {
+                            e.currentTarget.style.transform = 'rotate(90deg)';
+                            e.currentTarget.style.opacity = '1';
+                        }}
+                        onMouseOut={(e) => {
+                            e.currentTarget.style.transform = 'rotate(0deg)';
+                            e.currentTarget.style.opacity = '0.8';
+                        }}
+                        title="Configuración"
+                    >
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </button>
                     <button 
                         className="button-primary" 
                         onClick={handleSync}
