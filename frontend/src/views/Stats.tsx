@@ -1,6 +1,146 @@
 import React, { useState, useMemo } from 'react';
 import { useWishesStore, WishData } from '../store/useWishesStore';
 
+interface LuckRating {
+    topText: string;
+    deltaText: string;
+    deltaColor: string;
+    subtitle: string;
+    sampleText: string;
+    fourStarText: string;
+}
+
+interface RarityStats {
+    total: number;
+    count5: number;
+    count4: number;
+    count3: number;
+    pct5: number;
+    pct4: number;
+    pct3: number;
+    totalLabel: string;
+}
+
+const FIVE_STAR_BASELINE_MEAN = 76;
+const FOUR_STAR_BASELINE_MEAN = 9;
+
+function normalizeBanner(gachaType: string): string {
+    if (gachaType === '400') {
+        return '301';
+    }
+    return gachaType;
+}
+
+function formatCompactTotal(total: number): string {
+    if (total >= 1000) {
+        const compact = total / 1000;
+        return `${compact.toFixed(compact >= 10 ? 0 : 1)}k`;
+    }
+    return String(total);
+}
+
+function buildRarityStats(history: WishData[]): RarityStats {
+    const total = history.length;
+    const count5 = history.filter((w) => w.rank_type === '5').length;
+    const count4 = history.filter((w) => w.rank_type === '4').length;
+    const count3 = history.filter((w) => w.rank_type === '3').length;
+
+    if (total === 0) {
+        return {
+            total,
+            count5,
+            count4,
+            count3,
+            pct5: 0,
+            pct4: 0,
+            pct3: 0,
+            totalLabel: '0',
+        };
+    }
+
+    return {
+        total,
+        count5,
+        count4,
+        count3,
+        pct5: (count5 / total) * 100,
+        pct4: (count4 / total) * 100,
+        pct3: (count3 / total) * 100,
+        totalLabel: formatCompactTotal(total),
+    };
+}
+
+function extractPityDrops(sortedHistory: WishData[]) {
+    const pityMap: Record<string, number> = {};
+    const pity4Map: Record<string, number> = {};
+    const fiveStarDrops: { pity: number }[] = [];
+    const fourStarDrops: { pity: number }[] = [];
+
+    for (const wish of sortedHistory) {
+        const banner = normalizeBanner(wish.gacha_type);
+        pityMap[banner] = (pityMap[banner] || 0) + 1;
+        pity4Map[banner] = (pity4Map[banner] || 0) + 1;
+
+        if (wish.rank_type === '5') {
+            fiveStarDrops.push({ pity: pityMap[banner] });
+            fourStarDrops.push({ pity: pity4Map[banner] });
+            pityMap[banner] = 0;
+            pity4Map[banner] = 0;
+        } else if (wish.rank_type === '4') {
+            fourStarDrops.push({ pity: pity4Map[banner] });
+            pity4Map[banner] = 0;
+        }
+    }
+
+    return { fiveStarDrops, fourStarDrops };
+}
+
+function buildLuckRating(sortedHistory: WishData[]): LuckRating {
+    const { fiveStarDrops, fourStarDrops } = extractPityDrops(sortedHistory);
+
+    const fourStarAvg = fourStarDrops.length > 0
+        ? fourStarDrops.reduce((acc, drop) => acc + drop.pity, 0) / fourStarDrops.length
+        : 0;
+    const fourStarImprovement = fourStarDrops.length > 0
+        ? ((FOUR_STAR_BASELINE_MEAN - fourStarAvg) / FOUR_STAR_BASELINE_MEAN) * 100
+        : 0;
+    const fourStarText = fourStarDrops.length > 0
+        ? `4★ avg ${fourStarAvg.toFixed(2)} vs 9 (${fourStarImprovement >= 0 ? '+' : ''}${fourStarImprovement.toFixed(1)}%)`
+        : '4★ avg: not enough data';
+
+    if (fiveStarDrops.length < 3) {
+        return {
+            topText: 'Top —',
+            deltaText: 'Not enough data',
+            deltaColor: 'var(--text-muted)',
+            subtitle: 'Need at least 3 five-stars',
+            sampleText: `${fiveStarDrops.length} tracked 5★ drops`,
+            fourStarText,
+        };
+    }
+
+    let userPityTotal = 0;
+    for (const drop of fiveStarDrops) {
+        userPityTotal += drop.pity;
+    }
+
+    const userAverage = userPityTotal / fiveStarDrops.length;
+    const improvementPct = ((FIVE_STAR_BASELINE_MEAN - userAverage) / FIVE_STAR_BASELINE_MEAN) * 100;
+    const topPercent = Math.max(1, Math.min(99, 50 - improvementPct));
+
+    const arrow = improvementPct >= 0 ? '↗' : '↘';
+    const sign = improvementPct >= 0 ? '+' : '';
+
+    return {
+        topText: `Top ${topPercent.toFixed(1)}%`,
+        deltaText: `${arrow} ${sign}${improvementPct.toFixed(1)}%`,
+        deltaColor: improvementPct >= 0 ? '#10b981' : '#f87171',
+        subtitle: 'Compared to 76-pull average',
+        sampleText: `${fiveStarDrops.length} tracked 5★ drops`,
+        fourStarText,
+    };
+}
+
 const ProgressBar = ({ label, value, main, global }: { label: string; value: string; main: number; global: number }) => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -33,6 +173,41 @@ export function Stats() {
         return [...history].sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
     }, [history]);
     const [chartTab, setChartTab] = useState<'Event' | 'Weapon'>('Event');
+    const [rarityScope, setRarityScope] = useState<'All' | 'Promotional' | 'Permanent'>('Promotional');
+
+    const luckRating = useMemo(() => buildLuckRating(sortedHistory), [sortedHistory]);
+
+    const raritySource = useMemo(() => {
+        if (rarityScope === 'Permanent') {
+            return history.filter((w) => w.gacha_type === '200');
+        }
+        if (rarityScope === 'Promotional') {
+            return history.filter((w) => w.gacha_type !== '200');
+        }
+        return history;
+    }, [history, rarityScope]);
+
+    const rarityStats = useMemo(() => buildRarityStats(raritySource), [raritySource]);
+
+    const donut = useMemo(() => {
+        const circumference = 2 * Math.PI * 40;
+        if (rarityStats.total === 0) {
+            return {
+                dash5: `0 ${circumference}`,
+                dash4: `0 ${circumference}`,
+                offset4: 0,
+            };
+        }
+
+        const len5 = (rarityStats.pct5 / 100) * circumference;
+        const len4 = (rarityStats.pct4 / 100) * circumference;
+
+        return {
+            dash5: `${len5} ${circumference}`,
+            dash4: `${len4} ${circumference}`,
+            offset4: -len5,
+        };
+    }, [rarityStats]);
 
     const graphData = useMemo(() => {
         let pityMap: Record<string, number> = {};
@@ -58,7 +233,7 @@ export function Stats() {
         const active = fiveStars.filter(f => f.banner === targetBanner);
 
         const svgW = 320;
-        const maxPity = 90;
+        const maxPity = chartTab === 'Weapon' ? 80 : 90;
 
         let points = active.map((v, i) => {
             const x = active.length === 1 ? svgW / 2 : (i / (active.length - 1)) * svgW;
@@ -104,7 +279,7 @@ export function Stats() {
         if (labels.length === 0) labels = ['NO DATA', '', '', ''];
 
         return { dLine, dFill, points, labels };
-    }, [history, chartTab]);
+    }, [sortedHistory, chartTab]);
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', paddingBottom: '40px' }}>
@@ -116,7 +291,7 @@ export function Stats() {
                         Astral Probability <span style={{ color: 'var(--color-gold)', fontStyle: 'italic', fontWeight: 700 }}>Insights</span>
                     </h2>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem', fontWeight: 500, marginTop: '12px', lineHeight: 1.6 }}>
-                        A comprehensive overview of your journey through the stars. We've analyzed 2,458 wishes across all active banners to determine your cosmic resonance.
+                        A comprehensive overview of your journey through the stars. We've analyzed {history.length.toLocaleString()} wishes across your tracked banners to estimate your luck profile.
                     </p>
                 </div>
                 
@@ -131,11 +306,13 @@ export function Stats() {
                 }}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Luck Rating</span>
-                        <span style={{ fontSize: '2.4rem', color: 'var(--color-gold)', fontWeight: 800, lineHeight: 1.2 }}>Top 4.2%</span>
+                        <span style={{ fontSize: '2.4rem', color: 'var(--color-gold)', fontWeight: 800, lineHeight: 1.2 }}>{luckRating.topText}</span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'right' }}>
-                        <span style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: 700 }}>↗ +12.5%</span>
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.3 }}>Compared to<br/>all Travelers</span>
+                        <span style={{ fontSize: '0.85rem', color: luckRating.deltaColor, fontWeight: 700 }}>{luckRating.deltaText}</span>
+                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.3 }}>
+                            {luckRating.subtitle}<br/>{luckRating.sampleText}<br/>{luckRating.fourStarText}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -215,31 +392,59 @@ export function Stats() {
                 </div>
 
                 {/* Donut Chart Right */}
-                <div className="glass-panel" style={{ padding: '28px', display: 'flex', flexDirection: 'column' }}>
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>Rarity Sphere</h3>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '32px', fontWeight: 500 }}>Overall wish distribution</p>
-                    
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '40px' }}>
-                        <div style={{ position: 'relative', width: '160px', height: '160px' }}>
+                <div className="glass-panel" style={{ padding: '24px', display: 'grid', gridTemplateRows: 'auto 1fr auto auto', gap: '14px' }}>
+                    <div>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>Rarity Sphere</h3>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 500 }}>
+                            {rarityScope} wish distribution
+                        </p>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '190px' }}>
+                        <div style={{ position: 'relative', width: '190px', height: '190px' }}>
                             <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ transform: 'rotate(-90deg)' }}>
                                 {/* 3-star (Background/Base) */}
                                 <circle cx="50" cy="50" r="40" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="12" />
-                                {/* 4-star (Purple ~14.8%) */}
-                                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--rarity-4)" strokeWidth="12" strokeDasharray="251.2" strokeDashoffset={251.2 * (1 - 0.148)} /> 
-                                {/* 5-star (Gold ~1.6%) */}
-                                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--color-gold)" strokeWidth="12" strokeDasharray="251.2" strokeDashoffset={251.2 * (1 - 0.016)} />
+                                {/* 4-star */}
+                                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--rarity-4)" strokeWidth="12" strokeDasharray={donut.dash4} strokeDashoffset={donut.offset4} />
+                                {/* 5-star */}
+                                <circle cx="50" cy="50" r="40" fill="none" stroke="var(--color-gold)" strokeWidth="12" strokeDasharray={donut.dash5} strokeDashoffset={0} />
                             </svg>
                             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                <span style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '-0.02em' }}>2.4k</span>
+                                <span style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1, letterSpacing: '-0.02em' }}>{rarityStats.totalLabel}</span>
                                 <span style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.15em', marginTop: '4px' }}>TOTAL</span>
                             </div>
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: 'auto' }}>
-                        <LegendRow color="var(--color-gold)" label="5-Star Manifests" value="1.6%" />
-                        <LegendRow color="var(--rarity-4)" label="4-Star Manifests" value="13.2%" />
-                        <LegendRow color="var(--text-muted)" label="3-Star Manifests" value="85.2%" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <LegendRow color="var(--color-gold)" label="5-Star Manifests" value={`${rarityStats.pct5.toFixed(1)}%`} />
+                        <LegendRow color="var(--rarity-4)" label="4-Star Manifests" value={`${rarityStats.pct4.toFixed(1)}%`} />
+                        <LegendRow color="var(--text-muted)" label="3-Star Manifests" value={`${rarityStats.pct3.toFixed(1)}%`} />
+                    </div>
+
+                    <div style={{ display: 'inline-flex', gap: '4px', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '24px', width: 'fit-content', justifySelf: 'center' }}>
+                        {(['Promotional', 'Permanent', 'All'] as const).map((scope) => (
+                            <button
+                                key={scope}
+                                onClick={() => setRarityScope(scope)}
+                                style={{
+                                    background: rarityScope === scope ? 'rgba(255,255,255,0.12)' : 'transparent',
+                                    color: rarityScope === scope ? 'var(--text-primary)' : 'var(--text-muted)',
+                                    border: 'none',
+                                    padding: '6px 11px',
+                                    borderRadius: '18px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    letterSpacing: '0.02em',
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                {scope}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>
