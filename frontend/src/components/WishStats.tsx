@@ -3,12 +3,21 @@ import styles from './WishStats.module.css';
 
 interface WishStatsProps {
     lifetimeWishes: number;
-    primogems: number;
+    promotionalWishes: number;
+    standardWishes: number;
+    promotionalPrimogems: number;
     luck5Star: number | string;
     luck4Star: number | string;
 }
 
-export function WishStats({ lifetimeWishes, primogems, luck5Star, luck4Star }: WishStatsProps) {
+export function WishStats({
+    lifetimeWishes,
+    promotionalWishes,
+    standardWishes,
+    promotionalPrimogems,
+    luck5Star,
+    luck4Star,
+}: WishStatsProps) {
     return (
         <div className={`glass-panel ${styles.statsContainer}`}>
             <h3 className={styles.sectionTitle}>Astral Summary</h3>
@@ -21,9 +30,9 @@ export function WishStats({ lifetimeWishes, primogems, luck5Star, luck4Star }: W
                 </div>
                 
                 <div className={styles.statBox}>
-                    <span className={styles.label}>Aether Investment</span>
-                    <span className={styles.value}>{primogems.toLocaleString()} <span className={styles.currency}>✦</span></span>
-                    <span className={styles.subtext}>Total primogems equivalent</span>
+                    <span className={styles.label}>Promo Investment</span>
+                    <span className={styles.value}>{promotionalPrimogems.toLocaleString()} <span className={styles.currency}>✦</span></span>
+                    <span className={styles.subtext}>{promotionalWishes.toLocaleString()} promo pulls (standard: {standardWishes.toLocaleString()})</span>
                 </div>
                 
                 <div className={`${styles.statBox} ${styles.luckBox}`}>

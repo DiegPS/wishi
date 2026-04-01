@@ -12,6 +12,7 @@ import {
 import type { main } from '../wailsjs/go/models';
 
 import { useWishesStore, DashboardData } from './store/useWishesStore';
+import { useAlerts } from './components/alerts/AlertsProvider';
 
 // Views
 import { Dashboard } from './views/Dashboard';
@@ -32,6 +33,7 @@ function App() {
     const wishes = useWishesStore(state => state.wishes);
     const addWishes = useWishesStore(state => state.addWishes);
     const getStats = useWishesStore(state => state.getStats);
+    const { notify } = useAlerts();
 
     const stats = useMemo(() => getStats(), [wishes, getStats]);
 
@@ -75,10 +77,24 @@ function App() {
         try {
             const result = await SyncHistory();
             if (!result.success) {
-                alert("Error: " + result.error);
+                notify({
+                    type: 'error',
+                    title: 'Sync failed',
+                    message: result.error || 'Unable to complete synchronization.',
+                });
+            } else {
+                notify({
+                    type: 'success',
+                    title: 'Sync complete',
+                    message: 'Wish history updated successfully.',
+                });
             }
         } catch (e) {
-            alert("Exception calling Go backend: " + String(e));
+            notify({
+                type: 'error',
+                title: 'Unexpected error',
+                message: String(e),
+            });
         } finally {
             setIsSyncing(false);
             setProgressMsg('');

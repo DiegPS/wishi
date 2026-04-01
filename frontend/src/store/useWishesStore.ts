@@ -24,7 +24,9 @@ export interface BannerStats {
 
 export interface GlobalStats {
     lifetimeWishes: number;
-    primogems: number;
+    promotionalWishes: number;
+    standardWishes: number;
+    promotionalPrimogems: number;
     luck5Star: number;
     luck4Star: number;
 }
@@ -88,9 +90,13 @@ const calculateAllStats = (wishes: WishData[]): DashboardData => {
     }
 
     const lifetimeWishes = wishes.length;
+    const promotionalWishes = wishes.filter((w) => ["301", "302", "400", "500"].includes(w.gacha_type)).length;
+    const standardWishes = wishes.filter((w) => w.gacha_type === "200").length;
     const global: GlobalStats = {
         lifetimeWishes,
-        primogems: lifetimeWishes * 160,
+        promotionalWishes,
+        standardWishes,
+        promotionalPrimogems: promotionalWishes * 160,
         luck5Star: count5 > 0 ? lifetimeWishes / count5 : 0,
         luck4Star: count4 > 0 ? lifetimeWishes / count4 : 0,
     };

@@ -1,12 +1,29 @@
 import React from 'react';
+import { useAlerts } from '../components/alerts/AlertsProvider';
 
 export function Settings() {
-    const handleClearLocalStorage = () => {
-        if (confirm("Are you sure you want to clear all local storage? This action cannot be undone.")) {
-            localStorage.clear();
-            alert("Local storage cleared.");
-            window.location.reload();
+    const { confirm, notify } = useAlerts();
+
+    const handleClearLocalStorage = async () => {
+        const accepted = await confirm({
+            title: 'Clear app data?',
+            message: 'This will remove all locally saved Wishi data. This action cannot be undone.',
+            confirmText: 'Clear data',
+            cancelText: 'Keep data',
+            danger: true,
+        });
+
+        if (!accepted) {
+            return;
         }
+
+        localStorage.removeItem('wishi_data');
+        notify({
+            type: 'success',
+            title: 'Data cleared',
+            message: 'Local Wishi data was removed successfully.',
+        });
+        window.location.reload();
     };
 
     return (

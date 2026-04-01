@@ -2,17 +2,19 @@ import React from 'react';
 import { BannerCard } from '../components/BannerCard';
 import { WishStats } from '../components/WishStats';
 import { DashboardData } from '../store/useWishesStore';
+import { useAlerts } from '../components/alerts/AlertsProvider';
 
 interface DashboardProps {
     stats: DashboardData | null;
 }
 
 export function Dashboard({ stats }: DashboardProps) {
+    const { notify } = useAlerts();
     const charStats = stats?.character || { totalWishes: 0, pity5: 0, maxPity5: 90, pity4: 0, maxPity4: 10 };
     const weaponStats = stats?.weapon || { totalWishes: 0, pity5: 0, maxPity5: 80, pity4: 0, maxPity4: 10 };
     const standardStats = stats?.standard || { totalWishes: 0, pity5: 0, maxPity5: 90, pity4: 0, maxPity4: 10 };
     const chronicledStats = stats?.chronicled || { totalWishes: 0, pity5: 0, maxPity5: 90, pity4: 0, maxPity4: 10 };
-    const globalStats = stats?.global || { lifetimeWishes: 0, primogems: 0, luck5Star: 0, luck4Star: 0 };
+    const globalStats = stats?.global || { lifetimeWishes: 0, promotionalWishes: 0, standardWishes: 0, promotionalPrimogems: 0, luck5Star: 0, luck4Star: 0 };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '48px' }}>
@@ -37,7 +39,11 @@ export function Dashboard({ stats }: DashboardProps) {
                         boxShadow: '0 0 30px rgba(233, 193, 122, 0.1)',
                         fontWeight: 800
                     }}
-                    onClick={() => alert("Simulation module syncing with Celestial Leylines...")}
+                    onClick={() => notify({
+                        type: 'info',
+                        title: 'Simulation pending',
+                        message: 'Wish simulation module is not available yet.',
+                    })}
                 >
                     ✦ SIMULATE WISH
                 </button>
@@ -50,8 +56,9 @@ export function Dashboard({ stats }: DashboardProps) {
                     <span style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--color-gold)' }}>{globalStats.lifetimeWishes.toLocaleString()}</span>
                 </div>
                 <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Invested Primogems</span>
-                    <span style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>{globalStats.primogems.toLocaleString()} ✦</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Promo Primogems</span>
+                    <span style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--text-primary)' }}>{globalStats.promotionalPrimogems.toLocaleString()} ✦</span>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{globalStats.promotionalWishes.toLocaleString()} promo pulls · {globalStats.standardWishes.toLocaleString()} standard</span>
                 </div>
                 <div className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Luck Accuracy</span>
@@ -94,7 +101,9 @@ export function Dashboard({ stats }: DashboardProps) {
             {/* Detailed Stats Widget */}
             <WishStats 
                 lifetimeWishes={globalStats.lifetimeWishes}
-                primogems={globalStats.primogems}
+                promotionalWishes={globalStats.promotionalWishes}
+                standardWishes={globalStats.standardWishes}
+                promotionalPrimogems={globalStats.promotionalPrimogems}
                 luck5Star={globalStats.luck5Star > 0 ? globalStats.luck5Star.toFixed(1) : 'N/A'}
                 luck4Star={globalStats.luck4Star > 0 ? globalStats.luck4Star.toFixed(1) : 'N/A'}
             />
