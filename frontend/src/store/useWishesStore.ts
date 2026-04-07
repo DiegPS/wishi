@@ -118,10 +118,15 @@ export const useWishesStore = create<WishesState>()(
             // Upsert mechanism like IGNORE INTO
             addWishes: (newWishes) => set((state) => {
                 const existing = new Set(state.wishes.map(w => w.id));
-                const uniqueNewWishes = newWishes.filter(w => !existing.has(w.id));
-                
+                const incomingIds = new Set<string>();
+                const uniqueNewWishes = newWishes.filter(w => {
+                    if (existing.has(w.id) || incomingIds.has(w.id)) return false;
+                    incomingIds.add(w.id);
+                    return true;
+                });
+
                 if (uniqueNewWishes.length === 0) return state; // Avoid unnecessary re-renders
-                
+
                 return { wishes: [...state.wishes, ...uniqueNewWishes] };
             }),
 

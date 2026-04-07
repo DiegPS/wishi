@@ -4,6 +4,7 @@ export namespace main {
 	    success: boolean;
 	    url: string;
 	    error: string;
+	    warnings: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new SyncResult(source);
@@ -14,6 +15,7 @@ export namespace main {
 	        this.success = source["success"];
 	        this.url = source["url"];
 	        this.error = source["error"];
+	        this.warnings = source["warnings"];
 	    }
 	}
 

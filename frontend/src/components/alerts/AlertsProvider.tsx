@@ -58,7 +58,8 @@ export function AlertsProvider({ children }: { children: React.ReactNode }) {
 
         setToasts((current) => [...current, toast]);
 
-        const duration = options.durationMs ?? 3500;
+        const defaultDuration = (options.type === 'error' || options.type === 'warning') ? 8000 : 3500;
+        const duration = options.durationMs ?? defaultDuration;
         const timeoutId = window.setTimeout(() => {
             dismissToast(id);
         }, duration);

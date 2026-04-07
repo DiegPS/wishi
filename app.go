@@ -47,9 +47,10 @@ func (a *App) startup(ctx context.Context) {
 }
 
 type SyncResult struct {
-	Success bool   `json:"success"`
-	Url     string `json:"url"`
-	Error   string `json:"error"`
+	Success  bool     `json:"success"`
+	Url      string   `json:"url"`
+	Error    string   `json:"error"`
+	Warnings []string `json:"warnings"`
 }
 
 // SyncHistory extracts the wish URL from the Genshin cache and downloads the data
@@ -167,13 +168,20 @@ func (a *App) SyncHistory() SyncResult {
 		"500": "Recopilatorio",
 	}
 
+	var syncWarnings []string
+
 	for _, gt := range gachaTypes {
 		endId := "0"
 		page := 1
 		for {
 			runtime.EventsEmit(a.ctx, "syncProgress", fmt.Sprintf("⬇️ Descargando Banner: %s (Pag: %d)...", bannerNames[gt], page))
 			res, err := fetchWishesFromAPI(gachaLink, isChina, gt, endId)
-			if err != nil || len(res.Data.List) == 0 {
+			if err != nil {
+				runtime.EventsEmit(a.ctx, "syncProgress", fmt.Sprintf("⚠️ Error en %s: %s", bannerNames[gt], err.Error()))
+				syncWarnings = append(syncWarnings, fmt.Sprintf("%s: %s", bannerNames[gt], err.Error()))
+				break
+			}
+			if len(res.Data.List) == 0 {
 				break
 			}
 
@@ -191,7 +199,44 @@ func (a *App) SyncHistory() SyncResult {
 	}
 
 	runtime.EventsEmit(a.ctx, "syncProgress", "✅ Actualización Completada")
-	return SyncResult{Success: true, Url: gachaLink}
+	return SyncResult{Success: true, Url: gachaLink, Warnings: syncWarnings}
+}
+
+// ExportWishes opens a native save dialog and writes the provided content to the chosen file.
+// Returns the saved path, or an empty string if the user cancelled.
+func (a *App) ExportWishes(format string, content string) (string, error) {
+	var defaultFilename string
+	var filters []runtime.FileFilter
+
+	if format == "csv" {
+		defaultFilename = "wishi_wishes.csv"
+		filters = []runtime.FileFilter{
+			{DisplayName: "CSV Files (*.csv)", Pattern: "*.csv"},
+		}
+	} else {
+		defaultFilename = "wishi_wishes.json"
+		filters = []runtime.FileFilter{
+			{DisplayName: "JSON Files (*.json)", Pattern: "*.json"},
+		}
+	}
+
+	savePath, err := runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		Title:           "Export Wish History",
+		DefaultFilename: defaultFilename,
+		Filters:         filters,
+	})
+	if err != nil {
+		return "", fmt.Errorf("save dialog error: %w", err)
+	}
+	if savePath == "" {
+		return "", nil // user cancelled
+	}
+
+	if err := os.WriteFile(savePath, []byte(content), 0644); err != nil {
+		return "", fmt.Errorf("failed to write file: %w", err)
+	}
+
+	return savePath, nil
 }
 
 func copyFile(src, dst string) error {
@@ -267,7 +312,7 @@ func testUrl(rawUrl string, isChina bool) bool {
 
 	apiUrl := u.String()
 
-	client := &http.Client{Timeout: 5 * time.Second}
+	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
 	if err != nil {
 		return false

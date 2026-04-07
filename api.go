@@ -45,7 +45,7 @@ func fetchWishesFromAPI(baseUrl string, isChina bool, gachaType string, endId st
 
 	apiUrl := u.String()
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("GET", apiUrl, nil)
 	if err != nil {
 		return nil, err
@@ -70,6 +70,10 @@ func fetchWishesFromAPI(baseUrl string, isChina bool, gachaType string, endId st
 	var res GachaResponse
 	if err := json.Unmarshal(bodyBytes, &res); err != nil {
 		return nil, err
+	}
+
+	if res.Retcode != 0 {
+		return nil, fmt.Errorf("API error %d: %s", res.Retcode, res.Message)
 	}
 
 	return &res, nil

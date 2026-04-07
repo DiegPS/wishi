@@ -83,11 +83,22 @@ function App() {
                     message: result.error || 'Unable to complete synchronization.',
                 });
             } else {
-                notify({
-                    type: 'success',
-                    title: 'Sync complete',
-                    message: 'Wish history updated successfully.',
-                });
+                if (result.warnings && result.warnings.length > 0) {
+                    notify({
+                        type: 'warning',
+                        title: `Sync complete with ${result.warnings.length} warning(s)`,
+                        message: 'Some banners could not be fetched. See details below.',
+                    });
+                    result.warnings.forEach(w => {
+                        notify({ type: 'warning', title: 'Banner sync error', message: w });
+                    });
+                } else {
+                    notify({
+                        type: 'success',
+                        title: 'Sync complete',
+                        message: 'Wish history updated successfully.',
+                    });
+                }
             }
         } catch (e) {
             notify({
